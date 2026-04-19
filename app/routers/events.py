@@ -101,3 +101,21 @@ def update_event(
 
     background_tasks.add_task(notify_booked_customers_log, event.id)
     return event
+
+
+@router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_event(
+    event_id: int,
+    user: User = Depends(require_roles(UserRole.organizer)),
+    db: Session = Depends(get_db),
+) -> None:
+    event = db.get(Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    if event.organizer_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own events",
+        )
+    db.delete(event)
+    db.commit()
