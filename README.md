@@ -26,7 +26,7 @@ This order matches risk: get auth and schema right, then add business logic and 
 | **FastAPI `BackgroundTasks`** | Meets the assignment’s “job queue or async processing” requirement without running Redis/Celery; tasks run after the response is prepared and use a **new DB session** so they do not leak request-scoped sessions. A README note describes how this could evolve to **Celery + Redis** or **arq**. |
 | **Docker Compose** | One-command local Postgres for reviewers and demos. |
 | **`pydantic-settings` + `.env`** | Twelve-factor style config; secrets not hardcoded for real deployments. |
-| **`python-jose` + `passlib[bcrypt]`** | Widely used, small surface for this scope (vs rolling crypto). |
+| **`python-jose` + `bcrypt`** | Direct `bcrypt` hashing avoids **passlib** incompatibility with **bcrypt 4.1+** (`__about__` removed, stricter 72-byte checks during passlib init). |
 
 ## Roles and API access
 
@@ -94,7 +94,7 @@ An empty `PATCH` body (no fields to change) returns the current event and **does
 |-------|----------|-----|
 | **Token contents** | JWT `sub` = user id; optional `role` in payload is **not** trusted for authorization | Every protected route loads `User` from DB so role changes and deleted users are respected. |
 | **Transport** | Bearer token in `Authorization` header | Stateless, easy in Swagger “Authorize”. |
-| **Password API** | `bcrypt` hashes; minimum password length enforced in Pydantic | Reasonable default against trivial passwords without building full password policy UI. |
+| **Password API** | `bcrypt` (library) hashes; passwords over 72 **bytes** are truncated before hashing (bcrypt limit); min length enforced in Pydantic | Same security family as passlib-bcrypt without the broken version pairing on modern installs. |
 
 ## Background task decisions
 
@@ -205,6 +205,7 @@ This repository does not include the video file; upload it per the employer’s 
 | Port **5432** already in use | Stop the other Postgres instance, or change the host port in `docker-compose.yml` and set `DATABASE_URL` in `.env` to match. |
 | `alembic` not found | Use the same environment as the app: `.\.venv\Scripts\alembic upgrade head` (Windows) or `venv/bin/alembic upgrade head` (Unix). |
 | No **EMAIL** / **NOTIFY** lines in the terminal | Background tasks run **after** the response; keep the server terminal visible. Ensure `PATCH` included at least one field (empty body skips Task 2). |
+| `passlib` / `bcrypt.__about__` / 72-byte errors on register | This repo uses the **`bcrypt`** package directly (see `app/security.py`). Reinstall deps: `pip install -r requirements.txt` and remove old `passlib` if you no longer need it. |
 
 ## AI tools
 
