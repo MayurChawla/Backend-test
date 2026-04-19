@@ -32,7 +32,7 @@ This order matches risk: get auth and schema right, then add business logic and 
 
 | Role | Allowed operations |
 |------|-------------------|
-| **organizer** | `POST /events`, `GET /events/me/mine`, `PATCH /events/{id}` (own events only). |
+| **organizer** | `POST /events`, `GET /events/me/mine`, `PATCH /events/{id}`, `DELETE /events/{id}` (own events only). |
 | **customer** | `GET /events/me/bookings`, `POST /events/{id}/bookings`. |
 | **Unauthenticated** | `GET /events`, `GET /events/{id}` (public browse). |
 | **auth** | `POST /auth/register`, `POST /auth/login` |
@@ -146,6 +146,22 @@ An empty `PATCH` body (no fields to change) returns the current event and **does
 
 6. Open **Swagger UI**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
+## API reference (all routes)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/health` | No | Liveness probe |
+| POST | `/auth/register` | No | Create user (`organizer` or `customer`) |
+| POST | `/auth/login` | No | JWT access token |
+| GET | `/events` | No | List events (paginated) |
+| GET | `/events/me/mine` | Organizer | List my events |
+| GET | `/events/{event_id}` | No | Event detail |
+| POST | `/events` | Organizer | Create event |
+| PATCH | `/events/{event_id}` | Organizer | Update own event (triggers Task 2 when body has fields) |
+| DELETE | `/events/{event_id}` | Organizer | Delete own event |
+| GET | `/events/me/bookings` | Customer | List my bookings |
+| POST | `/events/{event_id}/bookings` | Customer | Book tickets (triggers Task 1) |
+
 ## Example flow (Swagger or curl)
 
 1. `POST /auth/register` — organizer (role `organizer`).
@@ -153,6 +169,46 @@ An empty `PATCH` body (no fields to change) returns the current event and **does
 3. `POST /events` — create an event with `tickets_total`.
 4. Register + login as **customer**; `POST /events/{id}/bookings` with `quantity` — watch the server terminal for **EMAIL** line.
 5. Login again as **organizer**; `PATCH /events/{id}` — terminal shows **NOTIFY** lines for each distinct customer.
+6. (Optional) As customer, `GET /events/me/bookings` to list purchases.
+
+## Demo video (assignment deliverable)
+
+The brief asks for a **screen recording** (e.g. [Loom](https://www.loom.com/) or similar) that demonstrates what you built, with these constraints:
+
+- **Length:** at least **2 minutes**, at most **5 minutes** (about **3–4 minutes** is ideal).
+- **Face on camera** — required.
+- **English** narration while you walk through the demo.
+
+Suggested talking points:
+
+1. Show **Swagger** (`/docs`): register organizer and customer, login, authorize.
+2. Organizer: **create** an event; customer: **browse** and **book**; point at the terminal for the **EMAIL** log line.
+3. Organizer: **PATCH** the event; point at **NOTIFY** log lines for booked customers.
+4. In one sentence, mention **Postgres + Alembic** and **role-based** access.
+
+This repository does not include the video file; upload it per the employer’s instructions.
+
+## Submission checklist (maps to the brief)
+
+- [ ] **Two user types** — organizers manage events; customers browse and book (`UserRole`, route guards).
+- [ ] **Role-based API access** — wrong role → 403; protected routes require Bearer JWT.
+- [ ] **Background Task 1** — booking confirmation simulated with **print/log** after successful booking.
+- [ ] **Background Task 2** — event update notifies **distinct** booked customers via **print/log** after a successful PATCH with changes.
+- [ ] **Design decisions** — documented in this README (stack, model, HTTP semantics, tasks).
+- [ ] **Demo video** — recorded per section above (face + English + 2–5 min).
+
+## Troubleshooting
+
+| Symptom | What to try |
+|---------|-------------|
+| `could not connect to server` (Alembic or app) | Run `docker compose up -d` and wait until Postgres is healthy (`docker compose ps`). |
+| Port **5432** already in use | Stop the other Postgres instance, or change the host port in `docker-compose.yml` and set `DATABASE_URL` in `.env` to match. |
+| `alembic` not found | Use the same environment as the app: `.\.venv\Scripts\alembic upgrade head` (Windows) or `venv/bin/alembic upgrade head` (Unix). |
+| No **EMAIL** / **NOTIFY** lines in the terminal | Background tasks run **after** the response; keep the server terminal visible. Ensure `PATCH` included at least one field (empty body skips Task 2). |
+
+## AI tools
+
+The assignment allows using **AI tools** (e.g. assistants, codegen). This project was developed with that in mind: generated or suggested code was still **reviewed** for security (auth, SQL injection via ORM), correctness (ticket concurrency), and fit to the brief.
 
 ## Future improvements
 
