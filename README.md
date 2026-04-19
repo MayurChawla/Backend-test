@@ -56,6 +56,15 @@ If `rowcount != 1`, the API returns **409** and does not insert a booking. This 
 
 If nobody has booked yet, the notifier simply does nothing (no lines).
 
+### Where this lives in code
+
+| Assignment item | Trigger | Implementation |
+|-----------------|---------|------------------|
+| Background Task 1 (booking email) | Successful booking commit | [`app/routers/bookings.py`](app/routers/bookings.py) → `BackgroundTasks.add_task(send_booking_confirmation_log, …)` → [`app/tasks/notifications.py`](app/tasks/notifications.py) |
+| Background Task 2 (event updated) | Successful PATCH with at least one field | [`app/routers/events.py`](app/routers/events.py) → `BackgroundTasks.add_task(notify_booked_customers_log, …)` → [`app/tasks/notifications.py`](app/tasks/notifications.py) |
+
+An empty `PATCH` body (no fields to change) returns the current event and **does not** enqueue Task 2, since nothing was persisted.
+
 ## Data model decisions
 
 | Topic | Decision | Why |
@@ -95,7 +104,9 @@ If nobody has booked yet, the notifier simply does nothing (no lines).
 | **When they run** | After successful `db.commit()` in the request path | Matches “triggered when … successfully” in the spec; avoids emailing/logging for rolled-back transactions. |
 | **DB in tasks** | Open `SessionLocal()` inside the task, then `close()` | Request session is tied to the request lifecycle; avoids detached instances and connection leaks. |
 | **Event update notify** | **Distinct** customer emails | Requirement is to notify all customers who booked; one log line per person avoids spam if they have multiple booking rows. |
+| **Notify only on real updates** | Task 2 runs only when `PATCH` included at least one field | Avoids spurious “event updated” logs for no-op requests. |
 | **Output** | `print(..., flush=True)` and `logging` | Visible in `uvicorn` terminal for demos; satisfies “console log / print” wording. |
+| **Process logging** | `logging.basicConfig` in [`app/main.py`](app/main.py) | Ensures `logging.info` lines from task helpers show up during `uvicorn` runs without extra config. |
 
 ## Other design choices (summary)
 

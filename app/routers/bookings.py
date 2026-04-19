@@ -67,5 +67,6 @@ def create_booking(
     db.commit()
     db.refresh(booking)
 
+    # Assignment Background Task 1: booking confirmation (log only).
     background_tasks.add_task(send_booking_confirmation_log, booking.id)
     return booking

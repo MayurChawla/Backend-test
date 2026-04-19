@@ -83,6 +83,9 @@ def update_event(
         )
 
     data = body.model_dump(exclude_unset=True)
+    if not data:
+        return event
+
     if "starts_at" in data or "ends_at" in data:
         starts = data.get("starts_at", event.starts_at)
         ends = data.get("ends_at", event.ends_at)
@@ -99,6 +102,7 @@ def update_event(
     db.commit()
     db.refresh(event)
 
+    # Assignment Background Task 2: after a successful update, notify booked customers (log only).
     background_tasks.add_task(notify_booked_customers_log, event.id)
     return event
 
