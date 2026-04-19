@@ -33,7 +33,7 @@ This order matches risk: get auth and schema right, then add business logic and 
 | Role | Allowed operations |
 |------|-------------------|
 | **organizer** | `POST /events`, `GET /events/me/mine`, `PATCH /events/{id}` (own events only). |
-| **customer** | `POST /events/{id}/bookings`. |
+| **customer** | `GET /events/me/bookings`, `POST /events/{id}/bookings`. |
 | **Unauthenticated** | `GET /events`, `GET /events/{id}` (public browse). |
 | **auth** | `POST /auth/register`, `POST /auth/login` |
 
@@ -76,6 +76,7 @@ If nobody has booked yet, the notifier simply does nothing (no lines).
 | **Non-owner update** | **403 Forbidden** (not 404) | Resource exists but caller is not allowed to act; clearer than pretending the event does not exist. |
 | **Missing event on booking** | **404** | Customer targeted a non-existent id. |
 | **Oversell / low stock** | **409 Conflict** after failed conditional update | Standard signal that the business invariant (inventory) could not be satisfied. |
+| **Booking after end** | **422** if `ends_at` is in the past | Tickets should not be sold for finished events. |
 | **Duplicate registration** | **409** on same email | Idempotent UX expectation for “already registered”. |
 
 ## Auth decisions

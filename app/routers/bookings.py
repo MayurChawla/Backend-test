@@ -1,5 +1,7 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy import and_, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -9,6 +11,20 @@ from app.schemas import BookingCreate, BookingRead
 from app.tasks.notifications import send_booking_confirmation_log
 
 router = APIRouter(prefix="/events", tags=["bookings"])
+
+
+@router.get("/me/bookings", response_model=list[BookingRead])
+def list_my_bookings(
+    user: User = Depends(require_roles(UserRole.customer)),
+    db: Session = Depends(get_db),
+) -> list[Booking]:
+    """Customer: bookings for the current user (newest first)."""
+    stmt = (
+        select(Booking)
+        .where(Booking.customer_id == user.id)
+        .order_by(Booking.created_at.desc())
+    )
+    return list(db.scalars(stmt).all())
 
 
 @router.post("/{event_id}/bookings", response_model=BookingRead, status_code=status.HTTP_201_CREATED)
@@ -22,6 +38,12 @@ def create_booking(
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    if event.ends_at <= datetime.now(UTC):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Cannot book tickets for an event that has already ended",
+        )
 
     quantity = body.quantity
     result = db.execute(
